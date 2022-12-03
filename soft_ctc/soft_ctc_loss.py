@@ -1,9 +1,9 @@
 import torch
 
-from soft_ctc.models import BatchConnections
+from soft_ctc.models.batch_connections import BatchConnections
 
 
-class SoftCTC(torch.autograd.Function):
+class SoftCTCLoss(torch.autograd.Function):
     def __init__(self, norm_step=10, zero_infinity=True):
         self._norm_step = norm_step
         self._zero_infinity = zero_infinity
