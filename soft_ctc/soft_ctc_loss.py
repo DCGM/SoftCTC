@@ -1,6 +1,6 @@
 import torch
 
-from soft_ctc.models.batch_connections import BatchConnections
+from soft_ctc.models import BatchConnections
 
 
 class SoftCTCLoss(torch.autograd.Function):
@@ -120,7 +120,9 @@ class SoftCTCLoss(torch.autograd.Function):
         grad = full_probs - grad / denominator
 
         if zero_infinity:
-            grad[zero_mask] = 0
+            if zero_mask is not None:
+                grad[zero_mask] = 0
+
             for n in range(N):
                 if torch.any(torch.isinf(grad[n])) or torch.any(torch.isnan(grad[n])):
                     grad[n] = 0
@@ -131,5 +133,6 @@ class SoftCTCLoss(torch.autograd.Function):
         del ctx.alphas
         del ctx.norm_step
         del ctx.zero_infinity
+        del ctx.zero_mask
 
         return grad, None, None, None, None, None
