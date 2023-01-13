@@ -24,13 +24,13 @@ class BatchConnections():
         self.backward_end = self.backward_end.to(device)
         return self
 
-    def torch(self):
-        self.forward = torch.from_numpy(self.forward)
-        self.forward_start = torch.from_numpy(self.forward_start)
-        self.forward_end = torch.from_numpy(self.forward_end)
-        self.backward = torch.from_numpy(self.backward)
-        self.backward_start = torch.from_numpy(self.backward_start)
-        self.backward_end = torch.from_numpy(self.backward_end)
+    def torch(self, dtype=torch.float):
+        self.forward = torch.from_numpy(self.forward).to(dtype)
+        self.forward_start = torch.from_numpy(self.forward_start).to(dtype)
+        self.forward_end = torch.from_numpy(self.forward_end).to(dtype)
+        self.backward = torch.from_numpy(self.backward).to(dtype)
+        self.backward_start = torch.from_numpy(self.backward_start).to(dtype)
+        self.backward_end = torch.from_numpy(self.backward_end).to(dtype)
         return self
 
     def numpy(self):
