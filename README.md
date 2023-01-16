@@ -60,7 +60,7 @@ batch_connections = BatchConnections.stack_connections(all_connections, target_s
 batch_labels, batch_label_probs = stack_labels_and_label_probs(all_labels,  all_label_probs, blank, target_size)
 ```
 
-### Calculate SoftCTC loss
+### Calculate the SoftCTC loss
 The initialization os the `SoftCTCLoss` has two optional parameters: `norm_step` and `zero_infinity`. The `norm_step` specifies how often the normalization is performed to prevent underflow (i.e. `norm_step=10` means that the normalization is done every 10-th frame in logits). If the `zero_infinity` flag is set, the individual losses which are equal to infinity are zeroed to prevent the training process from collapsing.
 
 ```python
