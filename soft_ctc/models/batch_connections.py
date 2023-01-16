@@ -117,7 +117,7 @@ def stack_labels_and_label_probs(labels, label_probs, blank, target_size=None):
         label_probs[index] = np.array(label_probs[index])
 
     labels = np.stack(labels)
-    label_probs = np.stack(label_probs)
+    label_probs = np.stack(label_probs)[..., None]
 
     return labels, label_probs
 
