@@ -172,19 +172,8 @@ class Connections:
 
 
 def convert_characters_to_labels(confusion_network, character_set):
-    new_confusion_network = []
-
-    for confusion_set in confusion_network:
-        new_confusion_set = {}
-        for character in confusion_set:
-            if character is None:
-                new_confusion_set[None] = confusion_set[None]
-            else:
-                new_confusion_set[character_set.index(character)] = confusion_set[character]
-
-        new_confusion_network.append(new_confusion_set)
-
-    return new_confusion_network
+    return [{character_set.index(char) if char is not None else None: prob for char, prob in confusion_set.items()}
+            for confusion_set in confusion_network]
 
 
 def convert_confusion_network_to_connections(confusion_network, blank):
