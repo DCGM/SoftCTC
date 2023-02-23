@@ -13,51 +13,48 @@ If you use SoftCTC, please cite:
 ## Usage
 
 ### Import
-To import SoftCTC loss, you can either import python/PyTorch implementation:
+
+[//]: # (To import SoftCTC loss, you can either import python/PyTorch implementation:)
 
 ```python
 from soft_ctc.soft_ctc_loss import SoftCTCLoss
 ```
-or you can import CUDA implementation for python 3.10:
-```python
-from soft_ctc.soft_ctc_loss_cuda import SoftCTCLoss
-```
+
+[//]: # (or you can import CUDA implementation for python 3.10:)
+
+[//]: # (```python)
+
+[//]: # (from soft_ctc.soft_ctc_loss_cuda import SoftCTCLoss)
+
+[//]: # (```)
 
 ### Convert confusion network to `Connections` model
 
-You can use `convert_confusion_network_to_connections` from `soft_ctc.models.connections` to convert confusion network (a list of dictionaries with characters as keys and probabilities as values) into a transition matrix (`Connections` model), labels (ordered sequence of keys from the confusion network), and label probs (probabilities of individual labels).
+You can use `convert_confusion_network_to_connections` from `soft_ctc.models.connections` to convert confusion network (a list of dictionaries with characters as keys and probabilities as values) into a transition matrix (`Connections` model) and labels (ordered sequence of keys from the confusion network).
 
 ```python
 # confusion_network = [{'C': 0.5, None: 0.5}, {'A': 0.7, 'U': 0.2, None: 0.1}, {'T': 1.0}, {'E': 0.6, 'S': 0.4}]
 # character_set = ["<BLANK>"] + list("ACESTU")
 
-from soft_ctc.models.connections import convert_confusion_network_to_connections
-
-def convert_characters_to_labels(confusion_network, character_set):
-    return [{character_set.index(char) if char is not None else None: prob for char, prob in confusion_set.items()} 
-            for confusion_set in confusion_network]
+from soft_ctc.models.connections import convert_confusion_network_to_connections, convert_characters_to_labels
 
 blank = character_set.index("<BLANK>")
 confusion_network = convert_characters_to_labels(confusion_network, character_set)
-labels, label_probs, connections = convert_confusion_network_to_connections(confusion_network, blank)
+labels, connections = convert_confusion_network_to_connections(confusion_network, blank)
 ```
 
-### Stack `Connections`, labels, and label probs into `BatchConnections`, batched labels, and batched label probs
+### Stack `Connections` and labels into `BatchConnections` and batched labels
 
-To stack multiple transition matrices, labels, and label probs into a batch structures, you can use `BatchConnections` and `stack_labels_and_label_probs` from `soft_ctc.models.batch_connections`
+To stack multiple transition matrices and labels into a batch structures, you can use `BatchConnections` and `stack_labels` from `soft_ctc.models.batch_connections`
 ```python
 # all_connections: list of Connections in batch
 # all_labels: list of labels in batch
-# all_label_probs: list of label_probs in batch
 
-from soft_ctc.models.batch_connections import BatchConnections, stack_labels_and_label_probs
-
-def calculate_target_size(sizes, size_coefficient=64):
-    return int(np.ceil(np.max(sizes) / size_coefficient) * size_coefficient)
+from soft_ctc.models.batch_connections import BatchConnections, stack_labels, calculate_target_size
 
 target_size = calculate_target_size([connections.size() for connections in all_connections])
 batch_connections = BatchConnections.stack_connections(all_connections, target_size)
-batch_labels, batch_label_probs = stack_labels_and_label_probs(all_labels,  all_label_probs, blank, target_size)
+batch_labels = stack_labels(all_labels, blank, target_size)
 ```
 
 ### Calculate the SoftCTC loss
@@ -68,7 +65,7 @@ The initialization os the `SoftCTCLoss` has two optional parameters: `norm_step`
 # the number of frames (width) in logits
 
 softctc = SoftCTCLoss(norm_step=10, zero_infinity=True)
-loss = softctc(logits, batch_connections, batch_labels, batch_label_probs)
+loss = softctc(logits, batch_connections, batch_labels)
 
 loss.mean().backward()
 ```
