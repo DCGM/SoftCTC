@@ -2,7 +2,6 @@ import torch
 import numpy as np
 from typing import Optional, List, Dict
 
-from soft_ctc import equations as eqs
 from soft_ctc.models.connections import Connections, convert_confusion_network_to_connections
 
 
@@ -103,23 +102,18 @@ class BatchConnections():
         return BatchConnections.stack_connections(connections, target_connections_size)
 
 
-def stack_labels_and_label_probs(labels, label_probs, blank, target_size=None):
+def stack_labels(labels, blank, target_size=None):
     if target_size is None:
         target_size = max([len(l) for l in labels])
 
-    for index, (_labels, _label_probs) in enumerate(zip(labels, label_probs)):
-        labels_padding = [blank] * (target_size - len(_labels))
+    for index, l in enumerate(labels):
+        labels_padding = [blank] * (target_size - len(l))
         labels[index] += labels_padding
         labels[index] = np.array(labels[index])
 
-        label_probs_padding = [1.0] * (target_size - len(_label_probs))
-        label_probs[index] += label_probs_padding
-        label_probs[index] = np.array(label_probs[index])
-
     labels = np.stack(labels)
-    label_probs = np.stack(label_probs)[..., None]
 
-    return labels, label_probs
+    return labels
 
 
 def calculate_target_size(sizes: List[int], size_coefficient=64):
@@ -151,16 +145,14 @@ def main():
     confusion_network = [{'C': 0.5, None: 0.5}, {'A': 0.7, 'U': 0.2, None: 0.1}, {'T': 1.0}, {'E': 0.6, 'S': 0.4}]
     confusion_network = convert_characters_to_labels(confusion_network, character_set)
 
-    labels, label_probs, connections = convert_confusion_network_to_connections(confusion_network, blank)
+    labels, connections = convert_confusion_network_to_connections(confusion_network, blank)
 
     N = 4
     SIZE_COEFFICIENT = 8
     
     target_size = calculate_target_size(connections.size(), size_coefficient=SIZE_COEFFICIENT)
     batch_connections = BatchConnections.stack_connections([connections for _ in range(N)], target_size)
-    batch_labels, batch_label_probs = stack_labels_and_label_probs([labels for _ in range(N)],
-                                                                   [label_probs for _ in range(N)], blank,
-                                                                   target_size)
+    batch_labels = stack_labels([labels for _ in range(N)], blank, target_size)
     np.set_printoptions(precision=3, floatmode="fixed")
 
     print("Target size")
@@ -169,10 +161,6 @@ def main():
 
     print("Batch labels")
     print(batch_labels)
-    print()
-
-    print("Batch label probabilities")
-    print(batch_label_probs)
     print()
 
     print("Batch connections")

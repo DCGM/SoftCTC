@@ -8,11 +8,11 @@ class SoftCTCLoss(torch.autograd.Function):
         self._norm_step = norm_step
         self._zero_infinity = zero_infinity
 
-    def __call__(self, logits, connections: BatchConnections, labels, label_probs):
-        return self.apply(logits, connections, labels, label_probs, self._norm_step, self._zero_infinity)
+    def __call__(self, logits, connections: BatchConnections, labels):
+        return self.apply(logits, connections, labels, self._norm_step, self._zero_infinity)
 
     @staticmethod
-    def forward(ctx, logits, connections: BatchConnections, labels, label_probs, norm_step=10, zero_infinity=False):
+    def forward(ctx, logits, connections: BatchConnections, labels, norm_step=10, zero_infinity=False):
         full_probs = torch.nn.functional.softmax(logits, dim=1)
         full_probs[full_probs == 0] = 1e-37
 
@@ -48,7 +48,7 @@ class SoftCTCLoss(torch.autograd.Function):
             zero_mask = torch.isinf(ll_forward)
             ll_forward[zero_mask] = 0
 
-        ctx.save_for_backward(logits, labels, label_probs)
+        ctx.save_for_backward(logits, labels)
         ctx.connections = connections
         ctx.full_probs = full_probs
         ctx.probs = probs
@@ -61,7 +61,7 @@ class SoftCTCLoss(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, ll_forward):
-        logits, labels, label_probs = ctx.saved_tensors
+        logits, labels = ctx.saved_tensors
         connections = ctx.connections
         full_probs = ctx.full_probs
         probs = ctx.probs
@@ -72,9 +72,6 @@ class SoftCTCLoss(torch.autograd.Function):
 
         N, C, T = full_probs.shape
         L = connections.size()
-
-        label_probs[label_probs == 0] = 1e-37
-        label_probs = torch.tile(label_probs, (1, 1, T))
 
         betas = torch.zeros_like(alphas)
 
@@ -105,7 +102,6 @@ class SoftCTCLoss(torch.autograd.Function):
 
         grad = torch.zeros_like(logits)
         ab = alphas * betas
-        ab /= label_probs
 
         reshaped_labels = torch.tile(labels.reshape(N, L, 1), (1, 1, T))
         grad.scatter_add_(1, reshaped_labels, ab)
@@ -126,6 +122,8 @@ class SoftCTCLoss(torch.autograd.Function):
             for n in range(N):
                 if torch.any(torch.isinf(grad[n])) or torch.any(torch.isnan(grad[n])):
                     grad[n] = 0
+
+        grad /= N
 
         del ctx.connections
         del ctx.full_probs

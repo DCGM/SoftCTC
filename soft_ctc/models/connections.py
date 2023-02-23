@@ -5,7 +5,7 @@ from soft_ctc import equations as eqs
 
 
 class Connections:
-    def __init__(self, forward, backward, forward_start, forward_end, backward_start, backward_end, sparse=False):
+    def __init__(self, forward, backward, forward_start, forward_end, backward_start, backward_end, is_sparse=False):
         self.forward = forward
         self.backward = backward
         self.forward_start = forward_start
@@ -13,7 +13,7 @@ class Connections:
         self.backward_start = backward_start
         self.backward_end = backward_end
 
-        self._sparse = sparse
+        self._sparse = is_sparse
 
     def size(self):
         size = self.forward_start.shape[0]
@@ -82,8 +82,8 @@ class Connections:
         return output
 
     def extend(self, target_size):
-        sparse = self._sparse
-        if sparse:
+        is_sparse = self._sparse
+        if is_sparse:
             self.to_dense()
 
         current_size = self.size()
@@ -108,7 +108,7 @@ class Connections:
         else:
             extended_connections = None
 
-        if sparse:
+        if is_sparse:
             self.to_sparse()
 
             if extended_connections is not None:
@@ -133,40 +133,28 @@ class Connections:
         return extended_vector
 
     @staticmethod
-    def from_confusion_network(confusion_network, blank=0, labeling=None, epsilon_probs=None, label_probs=None,
-                               dtype=float):
+    def from_confusion_network(confusion_network, blank=0, labeling=None, dtype=np.float):
         if labeling is None:
             labeling = eqs.construct_labeling(confusion_network, blank)
 
-        if epsilon_probs is None:
-            epsilon_probs = eqs.epsilon_probabilities(confusion_network)
+        label_probs = [eqs.p_symbol(confusion_network, symbol, tau, blank) if tau < len(confusion_network) else 1.0
+                       for (symbol, tau) in labeling]
+        label_probs = np.array(label_probs, dtype=dtype)
 
-        if label_probs is None:
-            label_probs = eqs.label_probabilities(confusion_network, labeling, epsilon_probs, blank)
+        forward_matrix = np.full((len(labeling), len(labeling)), -1.0, dtype=dtype)
 
-        p_forward_in = eqs.forward_in(labeling, label_probs)
-        p_forward_out = eqs.forward_out(labeling, blank)
-        p_backward_in = eqs.backward_in(labeling, label_probs, blank)
-        p_backward_out = eqs.backward_out(labeling)
+        for i, (symbol1, tau1) in enumerate(labeling):
+            for j, (symbol2, tau2) in enumerate(labeling):
+                forward_matrix[i, j] = eqs.p_transition(confusion_network, symbol1, tau1, symbol2, tau2, blank)
 
-        forward_init_vector = eqs.forward_init(labeling, p_forward_in, epsilon_probs)
-        backward_init_vector = eqs.backward_init(labeling, p_backward_in, p_backward_out, epsilon_probs, blank)
+        backward_matrix = np.transpose(forward_matrix)
 
-        forward_transitions = np.full((len(labeling), len(labeling)), -1, dtype=dtype)
-        backward_transitions = np.copy(forward_transitions)
+        forward_init_vector = eqs.alpha_init(confusion_network, labeling, blank, dtype=dtype)
+        backward_init_vector = eqs.beta_init(confusion_network, labeling, blank, dtype=dtype)
+        forward_loss_vector = backward_init_vector
+        backward_loss_vector = forward_init_vector / label_probs
 
-        for index1, label1 in enumerate(labeling):
-            for index2, label2 in enumerate(labeling):
-                forward_transitions[index1, index2] = eqs.forward_transition_prob(label1, label2, p_forward_in,
-                                                                                  p_forward_out, epsilon_probs, blank)
-                backward_transitions[index1, index2] = eqs.backward_transition_prob(label1, label2, p_backward_in,
-                                                                                    p_backward_out, epsilon_probs, blank)
-
-        label_probs_vector = np.array([label_probs[label] for label in labeling])
-        forward_loss_vector = backward_init_vector / label_probs_vector
-        backward_loss_vector = forward_init_vector / label_probs_vector
-
-        return Connections(forward_transitions, backward_transitions,
+        return Connections(forward_matrix, backward_matrix,
                            forward_init_vector, forward_loss_vector,
                            backward_init_vector, backward_loss_vector)
 
@@ -176,19 +164,13 @@ def convert_characters_to_labels(confusion_network, character_set):
             for confusion_set in confusion_network]
 
 
-def convert_confusion_network_to_connections(confusion_network, blank):
+def convert_confusion_network_to_connections(confusion_network, blank, dtype=float):
     labeling = eqs.construct_labeling(confusion_network, blank)
-    epsilon_probs = eqs.epsilon_probabilities(confusion_network)
-
     labels = [symbol for (symbol, tau) in labeling]
 
-    label_probs_dict = eqs.label_probabilities(confusion_network, labeling, epsilon_probs, blank)
-    label_probs = [label_probs_dict[label] for label in labeling]
+    connections = Connections.from_confusion_network(confusion_network, blank=blank, labeling=labeling, dtype=dtype)
 
-    connections = Connections.from_confusion_network(confusion_network, blank=blank, labeling=labeling,
-                                                     epsilon_probs=epsilon_probs, label_probs=label_probs_dict)
-
-    return labels, label_probs, connections
+    return labels, connections
 
 
 def main():
@@ -200,8 +182,7 @@ def main():
     confusion_network = [{'C': 0.5, None: 0.5}, {'A': 0.7, 'U': 0.2, None: 0.1}, {'T': 1.0}, {'E': 0.6, 'S': 0.4}]
     confusion_network = convert_characters_to_labels(confusion_network, character_set)
 
-    labels, label_probs, connections = convert_confusion_network_to_connections(confusion_network, blank)
-    label_probs = np.array(label_probs)
+    labels, connections = convert_confusion_network_to_connections(confusion_network, blank)
 
     np.set_printoptions(precision=3, floatmode="fixed")
 
@@ -211,10 +192,6 @@ def main():
 
     print("Labels")
     print(labels)
-    print()
-
-    print("Label probabilities")
-    print(label_probs)
     print()
 
     print("Connections")
