@@ -45,7 +45,7 @@ class SoftCTCLoss(torch.autograd.Function):
 
         zero_mask = None
         if zero_infinity:
-            zero_mask = torch.isinf(ll_forward)
+            zero_mask = torch.logical_or(torch.isnan(ll_forward), torch.isinf(ll_forward))
             ll_forward[zero_mask] = 0
 
         ctx.save_for_backward(logits, labels)
