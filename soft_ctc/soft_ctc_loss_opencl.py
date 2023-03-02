@@ -42,12 +42,15 @@ class SoftCTCLoss(torch.autograd.Function):
             else:
                 print("Error: Data cannot be converted to numpy:")
                 return None
+
             grads = np.zeros(logits_swap.shape, dtype=numpy_type, order='C')
             loss = np.zeros(logits_swap.shape[1], dtype=numpy_type, order='C')
+
         if use_torch_buffers:
             result = gpu_ctx.calcCTCTorch(grads, loss, connections.forward.to("cpu"), connections.forward_start.to("cpu"), connections.forward_end.to("cpu"), connections.backward.to("cpu"), connections.backward_start.to("cpu"), connections.backward_end.to("cpu"), logits_swap.to("cpu"), labels_int, norm_step, zero_infinity)
         else:
             result = gpu_ctx.calcCTC(grads, loss, connections.forward.numpy(), connections.forward_start.numpy(), connections.forward_end.numpy(), connections.backward.numpy(), connections.backward_start.numpy(), connections.backward_end.numpy(), logits_swap.numpy(), labels_int.numpy(), norm_step, zero_infinity)
+
         if use_torch_buffers:
             ctx.grads = grads.permute(1, 2, 0).to(logits.device)
             return loss.to(logits.device)
