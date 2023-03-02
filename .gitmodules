@@ -1,3 +1,0 @@
-[submodule "soft_ctc_gpu_lib"]
-	path = soft_ctc_gpu_lib
-	url = git@github.com:DCGM/SoftCTC-GPU.git
