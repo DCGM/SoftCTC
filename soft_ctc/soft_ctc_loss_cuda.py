@@ -1,8 +1,22 @@
 import torch
+import importlib
 import numpy as np
+import sys
 
-from soft_ctc import soft_ctc_gpu
 from soft_ctc.models import BatchConnections
+
+soft_ctc_cuda = None
+static_cuda_path = "soft_ctc.libs.cuda.soft_ctc_cuda"
+dynamic_cuda_path = "soft_ctc.libs.cuda_" + torch.version.cuda.split(".")[0] + ".soft_ctc_cuda"
+
+try:
+    soft_ctc_cuda = importlib.import_module(static_cuda_path)
+except:
+    try:
+        soft_ctc_cuda = importlib.import_module(dynamic_cuda_path)
+    except:
+        print("Error: Unable to load precompiled Cuda SoftCTC library.", file=sys.stderr)
+        soft_ctc_cuda = None
 
 
 class SoftCTCLoss(torch.autograd.Function):
@@ -21,10 +35,14 @@ class SoftCTCLoss(torch.autograd.Function):
                           self._norm_step, self._zero_infinity)
 
     def init_gpu_ctx(self, dtype=torch.float, use_static_compilation=True, use_sync_native=False):
+        if soft_ctc_cuda is None:
+            self._gpu_ctx = None
+            return
+
         if dtype == torch.float:
-            self._gpu_ctx = soft_ctc_gpu.CTCCudaFloat(False, use_static_compilation, use_sync_native)
+            self._gpu_ctx = soft_ctc_cuda.CTCCudaFloat(False, use_static_compilation, use_sync_native)
         else:
-            self._gpu_ctx = soft_ctc_gpu.CTCCudaDouble(False, use_static_compilation, use_sync_native)
+            self._gpu_ctx = soft_ctc_cuda.CTCCudaDouble(False, use_static_compilation, use_sync_native)
 
     @staticmethod
     def forward(ctx, logits, connections: BatchConnections, labels, gpu_ctx, use_torch_buffers, norm_step=10, zero_infinity=False):
@@ -43,16 +61,19 @@ class SoftCTCLoss(torch.autograd.Function):
             elif logits.dtype == torch.float:
                 numpy_type = np.float32
             else:
-                print("Error: Data cannot be converted to numpy:")
+                print("Error: Data cannot be converted to numpy.", file=sys.stderr)
                 return None
 
             grads = np.zeros(logits_swap.shape, dtype=numpy_type, order='C')
             loss = np.zeros(logits_swap.shape[1], dtype=numpy_type, order='C')
 
-        if use_torch_buffers:
-            result = gpu_ctx.calcCTCTorch(grads, loss, connections.forward, connections.forward_start, connections.forward_end, connections.backward, connections.backward_start, connections.backward_end, logits_swap, labels_int, norm_step, zero_infinity)
+        if gpu_ctx is None:
+            print("Error: Precompiled Cuda SoftCTC library is not loaded. Unable to run SoftCTC.", file=sys.stderr)
         else:
-            result = gpu_ctx.calcCTC(grads, loss, connections.forward.numpy(), connections.forward_start.numpy(), connections.forward_end.numpy(), connections.backward.numpy(), connections.backward_start.numpy(), connections.backward_end.numpy(), logits_swap.numpy(), labels_int.numpy(), norm_step, zero_infinity)
+            if use_torch_buffers:
+                result = gpu_ctx.calcCTCTorch(grads, loss, connections.forward, connections.forward_start, connections.forward_end, connections.backward, connections.backward_start, connections.backward_end, logits_swap, labels_int, norm_step, zero_infinity)
+            else:
+                result = gpu_ctx.calcCTC(grads, loss, connections.forward.numpy(), connections.forward_start.numpy(), connections.forward_end.numpy(), connections.backward.numpy(), connections.backward_start.numpy(), connections.backward_end.numpy(), logits_swap.numpy(), labels_int.numpy(), norm_step, zero_infinity)
 
         if use_torch_buffers:
             ctx.grads = grads.permute(1, 2, 0)
