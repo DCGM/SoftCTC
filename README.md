@@ -5,16 +5,19 @@ In the `soft_ctc` subdirectory you can find:
 - `models/`
   - `connections.py` - Model for storing transcription variants of single text line
   - `batch_connections.py` - Model for batched transcription variants
+- `libs/` - Compiled libraries for CUDA and OpenCL
 - `equations.py` - Implementation of SoftCTC loss equations as proposed in the paper
 - `multi_ctc_loss.py` - Parallel MultiCTC loss implementation based on PyTorch CTC 
 - `soft_ctc_loss.py` - SoftCTC loss implementation in PyTorch
 - `soft_ctc_loss_cuda.py` - SoftCTC loss adapter for CUDA implementation
 - `soft_ctc_loss_opencl.py` - SoftCTC loss adapter for OpenCL implementation
 
-The MultiCTC loss and the SoftCTC loss implemented in PyTorch are ready-to-use. 
-Currently, to use CUDA and OpenCL implementations, you need to compile SoftCTC-GPU library on your own (instructions are included in its repository) and then you can use it with the respective SoftCTC loss adapter. 
+### CUDA and OpenCL
 
-### Abstract
+Current CUDA and OpenCL implementations are compiled for `Python 3.7-11` and `PyTorch 1.13.1`.
+In case you need it for a different configuration, you can compile it on your own from the source codes in `soft_ctc_gpu_lib` or [SoftCTC-GPU](https://github.com/DCGM/SoftCTC-GPU) using the included instructions.
+
+### Paper abstract
 > This paper explores semi-supervised training for sequence tasks, such as Optical Character Recognition or Automatic Speech Recognition. We propose a novel loss function – SoftCTC – which is an extension of CTC allowing to consider multiple transcription variants at the same time. This allows to omit the confidence based filtering step which is otherwise a crucial component of pseudo-labeling approaches to semi-supervised learning. We demonstrate the effectiveness of our method on a challenging handwriting recognition task and conclude that SoftCTC matches the performance of a finely-tuned filtering based pipeline. We also evaluated SoftCTC in terms of computational efficiency, concluding that it is significantly more efficient than a naïve CTC-based approach for training on multiple transcription variants, and we make our GPU implementation public.
 
 ## Please cite
@@ -24,8 +27,6 @@ If you use SoftCTC, please cite:
 > Kišš, M., Hradiš, M., Beneš, K., Buchal, P., & Kula, M. (2022). SoftCTC &ndash; Semi-Supervised Learning for Text Recognition using Soft Pseudo-Labels. arXiv preprint arXiv:2212.02135.
 
 ## Usage
-
-
 
 ### Import
 
